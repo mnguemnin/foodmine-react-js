@@ -1,4 +1,4 @@
-import { Router } from "express";
+import e, { Router } from "express";
 import { sample_users } from "../data.js";
 import jwt from 'jsonwebtoken';
 import { BAD_REQUEST } from "../constants/httpStatus.js";
@@ -50,6 +50,45 @@ router.post(
     })
 );
 
+router.put('/updateProfile', 
+    authMid, 
+    handler(async(req, res)=>{
+        
+        const {name, address}=req.body;
+        const user= await UserModel.findByIdAndUpdate(
+            req.user.id,
+            {name, address},
+            {new: true}
+        );
+        res.send(generateTokenResponse(user));
+    }) );
+
+    router.put(
+        '/changePassword',
+        authMid,
+        handler(async(req, res)=>{
+            const {currentPassword, newPassword}=req.body;
+            const user= await UserModel.findById(req.user.id);
+
+            if(!user){
+                res.status(BAD_REQUEST).send('Change Password Failed!');
+                return;
+            }
+
+            const equal=await bcrypt.compare(currentPassword, user.password);
+
+            if(!equal){
+                res.status(BAD_REQUEST).send('Current Password Is Not Correct!');
+                return;
+            }
+
+            user.password=await bcrypt.hash(newPassword, PASSWORD_HASH_SALT_ROUNDS);
+            await user.save();
+
+            res.send();
+        })
+    )
+
 const generateTokenResponse=user=>{
     const token=jwt.sign(
         {
@@ -63,15 +102,7 @@ const generateTokenResponse=user=>{
         }
     );
 
-    router.put('/updateProfile', authMid, handler(async(req, res)=>{
-        const {name, address}=req.body;
-        const user= await UserModel.findByIdAndUpdate(
-            req.user.id,
-            {name, address},
-            {new: true}
-        );
-        res.send(generateTokenResponse(user));
-    }) )
+    
 
     return{
         id: user.id,
